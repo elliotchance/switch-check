@@ -10,6 +10,17 @@ var (
 	BarE     = Bar("e")
 )
 
+// BarF is too complex to understand. More importantly because there are no
+// arguments we shouldn't think NewBar is a type.
+var (
+	BarF = NewBar()
+	BarG = NewBar("a", 123)
+)
+
+func NewBar(_ ...interface{}) Bar {
+	return BarA
+}
+
 func hasAllBars() {
 	var bar Bar
 	switch bar {
