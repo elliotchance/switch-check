@@ -61,19 +61,24 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 }
 
 var inBuiltTypes = map[string]struct{}{
-	"int8":    {},
-	"int16":   {},
-	"int32":   {},
-	"int64":   {},
-	"uint8":   {},
-	"uint16":  {},
-	"uint32":  {},
-	"uint64":  {},
-	"int":     {},
-	"uint":    {},
-	"rune":    {},
-	"byte":    {},
-	"uintptr": {},
+	"byte":       {},
+	"complex128": {},
+	"complex64":  {},
+	"float32":    {},
+	"float64":    {},
+	"int":        {},
+	"int16":      {},
+	"int32":      {},
+	"int64":      {},
+	"int8":       {},
+	"rune":       {},
+	"string":     {},
+	"uint":       {},
+	"uint16":     {},
+	"uint32":     {},
+	"uint64":     {},
+	"uint8":      {},
+	"uintptr":    {},
 }
 
 func isCastToInBuiltType(t ast.Expr) bool {
