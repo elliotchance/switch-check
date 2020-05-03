@@ -41,7 +41,9 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 		return Value{Type: fmt.Sprintf("%v", ty), Value: "-" + v2.Value}
 	}
 
-	panic(value)
+	// Any other case we encounter we will assume it's too complicated to
+	// understand.
+	return Value{Type: "<nil>"}
 }
 
 func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
