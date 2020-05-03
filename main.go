@@ -25,6 +25,12 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 		return Value{Type: fmt.Sprintf("%v", ty), Value: v.Value}
 
 	case *ast.CallExpr:
+		// If there are no args this means it must be a call to a function.
+		// Which we don't support.
+		if len(v.Args) != 1 {
+			return Value{Type: "<nil>"}
+		}
+
 		v2 := resolveValue(v.Args[0], ty, found)
 		return Value{Type: fmt.Sprintf("%v", v.Fun), Value: v2.Value}
 
