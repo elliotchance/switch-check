@@ -20,6 +20,10 @@ var FooE = Foo(-1)
 // Ignored because not of type Foo
 const FooF = 123
 
+// This will not be understood as an enum value because of the complex
+// expression.
+const FooG = FooA + 2
+
 func ignoredSwitch1() {
 	switch {
 	case true:
