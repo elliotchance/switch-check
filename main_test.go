@@ -11,7 +11,7 @@ func TestCLI(t *testing.T) {
 		t.Error(err)
 	}
 
-	actual, exitStatus := run(true, true, []string{"."})
+	actual, exitStatus := run(true, true, nil)
 	if string(expected) != actual {
 		t.Errorf("expected %v, got %v", string(expected), actual)
 	}

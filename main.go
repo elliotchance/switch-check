@@ -152,6 +152,10 @@ func main() {
 }
 
 func run(flagVerbose bool, flagShowEnums bool, args []string) (string, int) {
+	if len(args) == 0 {
+		args = []string{"."}
+	}
+
 	var out string
 	allValues := map[string]Value{}
 	allSwitches := map[string][]string{}
