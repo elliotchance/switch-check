@@ -60,6 +60,24 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 	return Value{}
 }
 
+func getIotaType(ty ast.Expr, values []ast.Expr) ast.Expr {
+	if len(values) == 0 {
+		return nil
+	}
+
+	// "iota" as the raw keyword
+	if v, ok := values[0].(*ast.Ident); ok && v.Name == "iota" {
+		return ty
+	}
+
+	// iota wrapped in a type cast, like: Foo(iota)
+	if v, ok := values[0].(*ast.CallExpr); ok && len(v.Args) == 1 {
+		return getIotaType(v.Fun, v.Args)
+	}
+
+	return nil
+}
+
 func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
 	iotaValue := 1
 	var iotaType ast.Expr
@@ -70,10 +88,8 @@ func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
 			// careful that not all empty types mean an iota. Without a previous
 			// iota it would just be no type (the Go compiler would resolve the
 			// basic lit of whatever type in this case).
-			if len(valueSpec.Values) > 0 {
-				if v, ok := valueSpec.Values[0].(*ast.Ident); valueSpec.Type != nil && ok && v.Name == "iota" {
-					iotaType = valueSpec.Type
-				}
+			if iotaType == nil {
+				iotaType = getIotaType(valueSpec.Type, valueSpec.Values)
 			}
 
 			// Not all names will have a value. An iota is an example of when
