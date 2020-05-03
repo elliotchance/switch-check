@@ -19,20 +19,28 @@ type Value struct {
 	Value string
 }
 
+func getTypeName(ty ast.Expr) string {
+	if typeName, ok := ty.(*ast.Ident); ok {
+		return typeName.String()
+	}
+
+	return ""
+}
+
 func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 	switch v := value.(type) {
 	case *ast.BasicLit:
-		return Value{Type: fmt.Sprintf("%v", ty), Value: v.Value}
+		return Value{Type: getTypeName(ty), Value: v.Value}
 
 	case *ast.CallExpr:
 		// If there are no args this means it must be a call to a function.
 		// Which we don't support.
 		if len(v.Args) != 1 {
-			return Value{Type: "<nil>"}
+			return Value{}
 		}
 
 		v2 := resolveValue(v.Args[0], ty, found)
-		return Value{Type: fmt.Sprintf("%v", v.Fun), Value: v2.Value}
+		return Value{Type: getTypeName(v.Fun), Value: v2.Value}
 
 	case *ast.Ident:
 		f, ok := found[v.Name]
@@ -40,16 +48,16 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 			return f
 		}
 
-		return Value{Type: fmt.Sprintf("%v", ty), Value: "0"}
+		return Value{Type: getTypeName(ty), Value: "0"}
 
 	case *ast.UnaryExpr:
 		v2 := resolveValue(v.X, ty, found)
-		return Value{Type: fmt.Sprintf("%v", ty), Value: "-" + v2.Value}
+		return Value{Type: getTypeName(ty), Value: "-" + v2.Value}
 	}
 
 	// Any other case we encounter we will assume it's too complicated to
 	// understand.
-	return Value{Type: "<nil>"}
+	return Value{}
 }
 
 func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
@@ -97,10 +105,10 @@ func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
 func valuesToEnums(values map[string]Value) map[string][]string {
 	r := map[string][]string{}
 	for name, value := range values {
-		// A nil type means that its a basic literal, or perhaps something more
-		// complex. Either way we could not resolve it's custom type so we will
-		// ignore it as an enum value.
-		if value.Type != "<nil>" {
+		// An empty type means that its a basic literal, or perhaps something
+		// more complex. Either way we could not resolve it's custom type so we
+		// will ignore it as an enum value.
+		if value.Type != "" {
 			r[value.Type] = append(r[value.Type], name)
 		}
 	}

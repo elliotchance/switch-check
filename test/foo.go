@@ -1,5 +1,7 @@
 package test
 
+import "regexp"
+
 type Foo int
 
 // Define multiple enum values.
@@ -23,6 +25,9 @@ const FooF = 123
 // This will not be understood as an enum value because of the complex
 // expression.
 const FooG = FooA + 2
+
+// Make sure "regexp.MustCompile" is not considered a type.
+var alnumOrDashRegexp = regexp.MustCompile("[^a-z_0-9-]+")
 
 func ignoredSwitch1() {
 	switch {
