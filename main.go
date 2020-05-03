@@ -60,6 +60,32 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 	return Value{}
 }
 
+var inBuiltTypes = map[string]struct{}{
+	"int8":    {},
+	"int16":   {},
+	"int32":   {},
+	"int64":   {},
+	"uint8":   {},
+	"uint16":  {},
+	"uint32":  {},
+	"uint64":  {},
+	"int":     {},
+	"uint":    {},
+	"rune":    {},
+	"byte":    {},
+	"uintptr": {},
+}
+
+func isCastToInBuiltType(t ast.Expr) bool {
+	if i, ok := t.(*ast.CallExpr); ok {
+		_, ok := inBuiltTypes[fmt.Sprintf("%v", i.Fun)]
+
+		return ok
+	}
+
+	return false
+}
+
 func getIotaType(ty ast.Expr, values []ast.Expr) ast.Expr {
 	if len(values) == 0 {
 		return nil
@@ -112,7 +138,9 @@ func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
 					ty = iotaType
 				}
 
-				in[name.String()] = resolveValue(valueSpec.Values[i], ty, in)
+				if !isCastToInBuiltType(valueSpec.Values[i]) {
+					in[name.String()] = resolveValue(valueSpec.Values[i], ty, in)
+				}
 			}
 		}
 	}

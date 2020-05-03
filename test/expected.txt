@@ -4,6 +4,7 @@
 # ./test/bar.go
 # ./test/baz.go
 # ./test/foo.go
+# ./test/inbuilt.go
 Bar [BarA BarD BarE]
 Baz [BazA BazB BazC]
 Foo [BarC FooA FooB FooC FooD FooE]
