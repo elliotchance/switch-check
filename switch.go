@@ -65,9 +65,15 @@ func findMissingValues(allValues map[string]Value, values []string) []string {
 	// Otherwise we assume that all values should appear.
 	var missing []string
 	ty := allValues[values[0]]
-	for name, value := range allValues {
-		if value.Type == ty.Type {
-			missing = append(missing, name)
+
+	// If Type is empty then the enum type is not known. We shouldn't add any
+	// missing values in this case. Otherwise it would add every constant that
+	// was unresolved.
+	if ty.Type != "" {
+		for name, value := range allValues {
+			if value.Type == ty.Type {
+				missing = append(missing, name)
+			}
 		}
 	}
 
