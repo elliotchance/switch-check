@@ -2,8 +2,11 @@
 # ./main_test.go
 # ./switch.go
 # ./test/bar.go
+# ./test/baz.go
 # ./test/foo.go
 Bar [BarA BarD BarE]
+Baz [BazA BazB BazC]
 Foo [BarC FooA FooB FooC FooD FooE]
 ./test/bar.go:34:3 switch is missing cases for: BarE
+./test/baz.go:21:2 switch is missing cases for: BazA, BazB
 ./test/foo.go:42:2 switch is missing cases for: BarC, FooB, FooE
