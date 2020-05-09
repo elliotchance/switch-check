@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,18 +20,30 @@ type Value struct {
 	Value string
 }
 
-func getTypeName(ty ast.Expr) string {
+func getTypeName(ty ast.Expr, currentPackage string, pkgs map[string]string) string {
 	if typeName, ok := ty.(*ast.Ident); ok {
-		return typeName.String()
+		return currentPackage + "." + typeName.String()
+	}
+
+	if typeName, ok := ty.(*ast.SelectorExpr); ok {
+		tn := fmt.Sprintf("%v", typeName.X)
+
+		// First check if the type is an alias for a known package in the
+		// imports.
+		if fqn, ok := pkgs[tn]; ok {
+			tn = fqn
+		}
+
+		return tn + "." + typeName.Sel.String()
 	}
 
 	return ""
 }
 
-func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
+func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value, currentPackage string, pkgs map[string]string) Value {
 	switch v := value.(type) {
 	case *ast.BasicLit:
-		return Value{Type: getTypeName(ty), Value: v.Value}
+		return Value{Type: getTypeName(ty, currentPackage, pkgs), Value: v.Value}
 
 	case *ast.CallExpr:
 		// If there are no args this means it must be a call to a function.
@@ -39,8 +52,8 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 			return Value{}
 		}
 
-		v2 := resolveValue(v.Args[0], ty, found)
-		return Value{Type: getTypeName(v.Fun), Value: v2.Value}
+		v2 := resolveValue(v.Args[0], ty, found, currentPackage, pkgs)
+		return Value{Type: getTypeName(v.Fun, currentPackage, pkgs), Value: v2.Value}
 
 	case *ast.Ident:
 		f, ok := found[v.Name]
@@ -48,11 +61,11 @@ func resolveValue(value ast.Expr, ty ast.Expr, found map[string]Value) Value {
 			return f
 		}
 
-		return Value{Type: getTypeName(ty), Value: "0"}
+		return Value{Type: getTypeName(ty, currentPackage, pkgs), Value: "0"}
 
 	case *ast.UnaryExpr:
-		v2 := resolveValue(v.X, ty, found)
-		return Value{Type: getTypeName(ty), Value: "-" + v2.Value}
+		v2 := resolveValue(v.X, ty, found, currentPackage, pkgs)
+		return Value{Type: getTypeName(ty, currentPackage, pkgs), Value: "-" + v2.Value}
 	}
 
 	// Any other case we encounter we will assume it's too complicated to
@@ -109,7 +122,7 @@ func getIotaType(ty ast.Expr, values []ast.Expr) ast.Expr {
 	return nil
 }
 
-func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
+func appendEnumValues(in map[string]Value, decl *ast.GenDecl, currentPackage string, pkgs map[string]string) {
 	iotaValue := 1
 	var iotaType ast.Expr
 
@@ -144,7 +157,8 @@ func appendEnumValues(in map[string]Value, decl *ast.GenDecl) {
 				}
 
 				if !isCastToInBuiltType(valueSpec.Values[i]) {
-					in[name.String()] = resolveValue(valueSpec.Values[i], ty, in)
+					fqn := currentPackage + "." + name.String()
+					in[fqn] = resolveValue(valueSpec.Values[i], ty, in, currentPackage, pkgs)
 				}
 			}
 		}
@@ -170,13 +184,7 @@ func valuesToEnums(values map[string]Value) map[string][]string {
 	return r
 }
 
-func getEnumValuesFromFile(path string) map[string]Value {
-	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		log.Panic(err)
-	}
-
+func getEnumValuesFromFile(node *ast.File, basePackage string, pkgs map[string]string) map[string]Value {
 	found := map[string]Value{}
 
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -188,7 +196,7 @@ func getEnumValuesFromFile(path string) map[string]Value {
 		}
 
 		if n, ok := n.(*ast.GenDecl); ok {
-			appendEnumValues(found, n)
+			appendEnumValues(found, n, basePackage, pkgs)
 		}
 
 		return true
@@ -224,8 +232,9 @@ func run(flagVerbose bool, flagShowEnums bool, args []string) (string, int) {
 	var out string
 	allValues := map[string]Value{}
 	allSwitches := map[string][]string{}
-	for _, path := range args {
-		out += runPath(path, allValues, allSwitches, flagVerbose)
+	basePackage := getBasePackageName()
+	for _, p := range args {
+		out += runPath(p, allValues, allSwitches, flagVerbose, basePackage)
 	}
 
 	if flagShowEnums {
@@ -240,7 +249,25 @@ func run(flagVerbose bool, flagShowEnums bool, args []string) (string, int) {
 		sort.Strings(tys)
 
 		for _, ty := range tys {
-			out += fmt.Sprintln(ty, allEnums[ty])
+			out += fmt.Sprintln(ty)
+			for _, enum := range allEnums[ty] {
+				// The enum will be in the form of:
+				// <package location>.<name>
+				//
+				// This is confusing because it looks like <package location> is
+				// the type, which is impossible since we define the type above.
+				// To make it less ambiguous and verbose we only need to print
+				// the package it was found in if it was a different package
+				// from where the type is defined.
+				parts := strings.Split(enum, ".")
+				pkgName := strings.Join(parts[:len(parts)-1], ".")
+
+				if pkgName == pkgNameFromType(ty) {
+					out += fmt.Sprintf("  %s\n", parts[len(parts)-1])
+				} else {
+					out += fmt.Sprintf("  %s (in %s)\n", parts[len(parts)-1], pkgName)
+				}
+			}
 		}
 	}
 
@@ -265,6 +292,12 @@ func run(flagVerbose bool, flagShowEnums bool, args []string) (string, int) {
 	return out, exitStatus
 }
 
+func pkgNameFromType(ty string) string {
+	parts := strings.Split(ty, ".")
+
+	return strings.Join(parts[:len(parts)-1], ".")
+}
+
 func isDirectory(path string) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -275,17 +308,18 @@ func isDirectory(path string) bool {
 	return fileInfo.IsDir()
 }
 
-func runPath(path string, allValues map[string]Value, allSwitches map[string][]string, verbose bool) (out string) {
-	if isDirectory(path) {
-		files, err := ioutil.ReadDir(path)
+func runPath(p string, allValues map[string]Value, allSwitches map[string][]string, verbose bool, basePackage string) (out string) {
+	if isDirectory(p) {
+		files, err := ioutil.ReadDir(p)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
 		for _, file := range files {
-			subpath := path + "/" + file.Name()
-			if isDirectory(subpath) || strings.HasSuffix(subpath, ".go") {
-				out += runPath(subpath, allValues, allSwitches, verbose)
+			subPath := p + "/" + file.Name()
+			if isDirectory(subPath) || strings.HasSuffix(subPath, ".go") {
+				subBasePackage := path.Join(basePackage, path.Base(p))
+				out += runPath(subPath, allValues, allSwitches, verbose, subBasePackage)
 			}
 		}
 
@@ -293,18 +327,68 @@ func runPath(path string, allValues map[string]Value, allSwitches map[string][]s
 	}
 
 	if verbose {
-		out += fmt.Sprintln("#", path)
+		out += fmt.Sprintln("#", p)
 	}
 
-	values := getEnumValuesFromFile(path)
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, p, nil, 0)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	pkgs := map[string]string{}
+	for _, imp := range node.Imports {
+		value := strings.Trim(imp.Path.Value, `"`)
+		key := value
+		if imp.Name != nil {
+			key = imp.Name.String()
+		}
+		onlyKey := path.Base(key)
+		pkgs[onlyKey] = value
+
+		// This is tricky. Go lets you specify a different package name in the
+		// source files from the directory they reside in. Right now I haven't
+		// built a way to fetch all the real package names from the directories
+		// so I'll just assume that people would only remove punctuation (like a
+		// dash or underscore).
+		onlyKey = strings.Replace(onlyKey, "-", "", -1)
+		onlyKey = strings.Replace(onlyKey, "_", "", -1)
+		pkgs[onlyKey] = value
+	}
+
+	values := getEnumValuesFromFile(node, basePackage, pkgs)
 	for a, b := range values {
 		allValues[a] = b
 	}
 
-	switches := getSwitchesFromFile(path)
+	switches := getSwitchesFromFile(fset, node, basePackage, pkgs)
 	for a, b := range switches {
 		allSwitches[a] = append(allSwitches[a], b...)
 	}
 
 	return
+}
+
+func getBasePackageName() string {
+	goMod, err := ioutil.ReadFile("go.mod")
+	if err == nil {
+		lines := strings.Split(string(goMod), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "module ") {
+				return line[7:]
+			}
+		}
+	}
+
+	// If there is no go.mod (or at least we couldn't pull the information we
+	// need from it) we have to just use the directory name.
+	//
+	// TODO(elliotchance): We could compare the $GOPATH with the current
+	//  directory maybe?
+	cwd, err := os.Getwd()
+	if err == nil {
+		return path.Base(cwd)
+	}
+
+	panic("could not determine base package (no go.mod in current directory)")
 }

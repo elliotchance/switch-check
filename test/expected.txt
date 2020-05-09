@@ -1,14 +1,34 @@
 # ./main.go
 # ./main_test.go
 # ./switch.go
+# ./test/another-pkg/qux.go
+# ./test/another-pkg/reference-foo.go
 # ./test/bar.go
 # ./test/baz.go
 # ./test/foo.go
 # ./test/inbuilt.go
 # ./test/literals.go
-Bar [BarA BarD BarE]
-Baz [BazA BazB BazC]
-Foo [BarC FooA FooB FooC FooD FooE]
-./test/bar.go:34:3 switch is missing cases for: BarE
-./test/baz.go:21:2 switch is missing cases for: BazA, BazB
-./test/foo.go:42:2 switch is missing cases for: BarC, FooB, FooE
+github.com/elliotchance/switch-check/test.Bar
+  BarA
+  BarD
+  BarE
+github.com/elliotchance/switch-check/test.Baz
+  BazA
+  BazB
+  BazC
+  BazD (in github.com/elliotchance/switch-check/test/another-pkg)
+github.com/elliotchance/switch-check/test.Foo
+  BarC
+  FooA
+  FooB
+  FooC
+  FooE
+github.com/elliotchance/switch-check/test/another-pkg.Qux
+  QuxNo
+  QuxYes
+regexp.MustCompile
+  alnumOrDashRegexp (in github.com/elliotchance/switch-check/test)
+./test/another-pkg/reference-foo.go:12:2 switch is missing cases for: github.com/elliotchance/switch-check/test.BarC, github.com/elliotchance/switch-check/test.FooC, github.com/elliotchance/switch-check/test.FooE
+./test/bar.go:34:3 switch is missing cases for: github.com/elliotchance/switch-check/test.BarE
+./test/baz.go:23:2 switch is missing cases for: github.com/elliotchance/switch-check/test.BazA, github.com/elliotchance/switch-check/test.BazB, github.com/elliotchance/switch-check/test/another-pkg.BazD
+./test/foo.go:42:2 switch is missing cases for: github.com/elliotchance/switch-check/test.BarC, github.com/elliotchance/switch-check/test.FooB, github.com/elliotchance/switch-check/test.FooE
