@@ -1,5 +1,7 @@
 package test
 
+import "github.com/elliotchance/switch-check/test/another-pkg"
+
 type Baz int64
 
 const (
@@ -12,7 +14,7 @@ const (
 func allBaz() {
 	var b Baz
 	switch b {
-	case BazA, BazB, BazC:
+	case BazA, BazB, BazC, anotherpkg.BazD:
 	}
 }
 

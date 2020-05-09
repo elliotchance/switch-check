@@ -1,21 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"log"
 	"sort"
 )
 
-func getSwitchesFromFile(path string) map[string][]string {
-	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		log.Panic(err)
-	}
-
+func getSwitchesFromFile(fset *token.FileSet, node *ast.File, currentPackage string, pkgs map[string]string) map[string][]string {
 	found := map[string][]string{}
 
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -29,7 +20,7 @@ func getSwitchesFromFile(path string) map[string][]string {
 						hasDefault = true
 					}
 					for _, caseValueValue := range caseClauseValues.List {
-						found[pos] = append(found[pos], fmt.Sprintf("%v", caseValueValue))
+						found[pos] = append(found[pos], getTypeName(caseValueValue, currentPackage, pkgs))
 					}
 				}
 			}
